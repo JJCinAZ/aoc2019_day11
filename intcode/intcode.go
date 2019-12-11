@@ -14,8 +14,7 @@ type OpCode struct {
 type VM struct {
 	ID     int
 	Pgm    *Program
-	Input  func() int
-	Output func(int)
+	io chan int
 }
 
 type Program struct {
@@ -25,12 +24,11 @@ type Program struct {
 	debug bool
 }
 
-func NewVM(id int, pgm *Program, in func() int, out func(int)) *VM {
+func NewVM(id int, pgm *Program, ioChan chan int) *VM {
 	vm := new(VM)
 	vm.ID = id
 	vm.Pgm = pgm.Copy()
-	vm.Input = in
-	vm.Output = out
+	vm.io = ioChan
 	return vm
 }
 
@@ -96,7 +94,7 @@ PGMLOOP:
 			p.ip += 4
 		case 3: // Input
 			var b int
-			b = vm.Input()
+			b = <-vm.io
 			p.setParamValue(opcode.parmModes[0], 1, b)
 			if p.debug {
 				fmt.Printf("%02d: INPUT:%d\n", vm.ID, b)
@@ -104,7 +102,7 @@ PGMLOOP:
 			p.ip += 2
 		case 4: // Output
 			v1 := p.getParamValue(opcode.parmModes[0], 1)
-			vm.Output(v1)
+			vm.io <- v1
 			if p.debug {
 				fmt.Printf("%02d: OUTPUT:%d\n", vm.ID, v1)
 			}
